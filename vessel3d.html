@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VesselLab 3D — Pressurised Vessel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #06080f;
+  --panel:    #090c14;
+  --border:   #151d2e;
+  --border2:  #1e2a40;
+  --orange:   #ff7020;
+  --orange2:  #ffaa60;
+  --cyan:     #00d4ff;
+  --green:    #3dff8a;
+  --red:      #ff2244;
+  --yellow:   #ffdd33;
+  --blue:     #3388ff;
+  --text:     #bccad8;
+  --muted:    #3a4d60;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 22px;height:44px;
+  background:var(--panel);border-bottom:1px solid var(--border);
+}
+header h1{
+  font-family:'Orbitron',monospace;font-size:15px;font-weight:900;
+  letter-spacing:4px;color:var(--orange);text-transform:uppercase;
+}
+header .sub{font-size:8px;color:var(--muted);letter-spacing:1.5px;margin-top:1px}
+.badge{font-size:8px;padding:3px 9px;border:1px solid var(--orange);color:var(--orange);letter-spacing:1.5px}
+
+.layout{
+  display:grid;
+  grid-template-columns:220px 1fr 220px;
+  height:calc(100vh - 44px);
+}
+
+/* SIDEBARS */
+.sidebar{
+  background:var(--panel);border-right:1px solid var(--border);
+  padding:13px 11px;overflow-y:auto;display:flex;flex-direction:column;gap:15px;
+}
+.sidebar.right{border-right:none;border-left:1px solid var(--border)}
+
+.stitle{
+  font-size:7px;letter-spacing:2.5px;text-transform:uppercase;
+  color:var(--muted);padding-bottom:5px;margin-bottom:6px;
+  border-bottom:1px solid var(--border);
+}
+
+.param{margin-bottom:9px}
+.ph{display:flex;justify-content:space-between;margin-bottom:3px}
+.pn{font-size:10px;font-weight:500;color:var(--text)}
+.pv{font-size:10px;color:var(--orange)}
+
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:2px;
+  background:var(--border2);outline:none;border-radius:1px;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:11px;height:11px;border-radius:50%;
+  background:var(--orange);border:2px solid var(--bg);
+  box-shadow:0 0 7px rgba(255,112,32,.8);cursor:pointer;
+}
+
+.rbox{
+  background:var(--bg);border:1px solid var(--border);
+  padding:7px 9px;border-radius:1px;margin-bottom:5px;
+}
+.rl{font-size:7px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.rv{font-size:12px;font-weight:600}
+.rv.orange{color:var(--orange2)}
+.rv.cyan{color:var(--cyan)}
+.rv.green{color:var(--green)}
+.rv.red{color:var(--red)}
+.rv.yellow{color:var(--yellow)}
+.rv.blue{color:var(--blue)}
+
+.ubar{margin-bottom:6px}
+.uh{display:flex;justify-content:space-between;margin-bottom:2px;font-size:9px}
+.utrack{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.ufill{height:100%;border-radius:2px;transition:width .2s,background .2s}
+
+/* toggle row */
+.trow{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+.tbtn{
+  font-size:9px;padding:3px 7px;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);
+  cursor:pointer;font-family:'JetBrains Mono',monospace;
+  transition:all .15s;border-radius:1px;
+}
+.tbtn.on{border-color:var(--orange);color:var(--orange);background:rgba(255,112,32,.07)}
+.tbtn.on.c{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.06)}
+
+/* stress mode tabs */
+.smodes{display:flex;gap:3px;margin-bottom:7px}
+.smbtn{
+  flex:1;font-size:8px;padding:4px 2px;text-align:center;
+  border:1px solid var(--border2);background:transparent;color:var(--muted);
+  cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s;
+}
+.smbtn.on{border-color:var(--cyan);color:var(--cyan);background:rgba(0,212,255,.06)}
+
+.fillbtn{
+  width:100%;padding:6px;
+  border:1px solid var(--cyan);background:transparent;
+  color:var(--cyan);font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;
+  transition:all .15s;margin-top:3px;
+}
+.fillbtn:hover{background:rgba(0,212,255,.07)}
+.fillbtn.drain{border-color:var(--orange);color:var(--orange)}
+
+.hint{
+  font-size:8px;color:var(--muted);line-height:1.7;
+  padding:7px;background:var(--bg);border:1px solid var(--border);
+}
+
+/* VIEWPORT */
+#vp{
+  position:relative;overflow:hidden;
+  background:var(--bg);cursor:grab;
+}
+#vp:active{cursor:grabbing}
+#vp canvas{display:block}
+
+/* Color scale */
+#cscale{
+  position:absolute;bottom:14px;right:14px;
+  width:14px;height:120px;
+  border:1px solid var(--border2);
+  background:linear-gradient(to bottom,#ff0000,#ff6600,#ffcc00,#00ccff,#0044ff,#000820);
+}
+.cslabels{
+  position:absolute;bottom:14px;right:33px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  height:120px;font-size:8px;color:var(--muted);text-align:right;
+}
+
+/* Overlay text */
+.ov{
+  position:absolute;top:10px;left:10px;
+  font-size:8px;color:rgba(80,110,140,.6);line-height:1.9;pointer-events:none;
+}
+#inspect{
+  position:absolute;bottom:8px;left:0;right:0;text-align:center;
+  font-size:8px;color:var(--muted);pointer-events:none;letter-spacing:.5px;
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>VesselLab 3D</h1>
+    <div class="sub">PRESSURISED VESSEL · HYDROSTATIC + INTERNAL PRESSURE · THIN-WALL ASME · 3D STRESS MAP</div>
+  </div>
+  <div class="badge">v2.0 // THREE.JS</div>
+</header>
+
+<div class="layout">
+<!-- LEFT -->
+<aside class="sidebar">
+  <div>
+    <div class="stitle">Vessel Geometry</div>
+    <div class="param">
+      <div class="ph"><span class="pn">Inner Radius R</span><span class="pv" id="d-R">0.60 m</span></div>
+      <input type="range" id="sl-R" min="0.2" max="2" step="0.05" value="0.6">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Shell Height H</span><span class="pv" id="d-H">4.0 m</span></div>
+      <input type="range" id="sl-H" min="0.5" max="10" step="0.25" value="4">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Wall Thickness t</span><span class="pv" id="d-t">14 mm</span></div>
+      <input type="range" id="sl-t" min="3" max="80" step="1" value="14">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Young's Modulus E</span><span class="pv" id="d-E">200 GPa</span></div>
+      <input type="range" id="sl-E" min="50" max="400" step="10" value="200">
+    </div>
+  </div>
+  <div>
+    <div class="stitle">Pressure Loading</div>
+    <div class="param">
+      <div class="ph"><span class="pn">Internal Pressure P</span><span class="pv" id="d-P">0.50 MPa</span></div>
+      <input type="range" id="sl-P" min="0" max="5" step="0.05" value="0.5">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Fluid Density ρ</span><span class="pv" id="d-rho">1000 kg/m³</span></div>
+      <input type="range" id="sl-rho" min="500" max="14000" step="100" value="1000">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Fill Level h</span><span class="pv" id="d-hf">70%</span></div>
+      <input type="range" id="sl-hf" min="0" max="1" step="0.005" value="0.7">
+    </div>
+    <button class="fillbtn" id="fillbtn">▲  FILL VESSEL</button>
+  </div>
+  <div>
+    <div class="stitle">Material</div>
+    <div class="param">
+      <div class="ph"><span class="pn">Allowable Stress σ_all</span><span class="pv" id="d-sa">138 MPa</span></div>
+      <input type="range" id="sl-sa" min="80" max="310" step="5" value="138">
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Poisson's Ratio ν</span><span class="pv" id="d-nu">0.30</span></div>
+      <input type="range" id="sl-nu" min="0.1" max="0.49" step="0.01" value="0.3">
+    </div>
+  </div>
+  <div>
+    <div class="stitle">View Controls</div>
+    <div class="smodes" id="smodes">
+      <button class="smbtn on" data-m="vm">Von Mises</button>
+      <button class="smbtn"    data-m="hoop">Hoop</button>
+      <button class="smbtn"    data-m="long">Long.</button>
+    </div>
+    <div class="trow">
+      <button class="tbtn on"  id="t-fluid">Fluid</button>
+      <button class="tbtn"     id="t-wire">Wire</button>
+      <button class="tbtn"     id="t-cut">Cutaway</button>
+      <button class="tbtn on"  id="t-deform">Deform</button>
+    </div>
+    <div class="param">
+      <div class="ph"><span class="pn">Deform Scale</span><span class="pv" id="d-ds">500×</span></div>
+      <input type="range" id="sl-ds" min="0" max="3000" step="50" value="500">
+    </div>
+  </div>
+  <div class="hint">
+    🖱 Drag to rotate<br>
+    🖱 Scroll to zoom<br>
+    Hover vessel = inspect stress<br>
+    Cutaway = cross section view
+  </div>
+</aside>
+
+<!-- VIEWPORT -->
+<div id="vp">
+  <div class="ov">
+    VesselLab 3D · Thin-Wall Theory<br>
+    Combined Pressure + Hydrostatic
+  </div>
+  <div id="cscale"></div>
+  <div class="cslabels">
+    <span id="cs-hi">—</span>
+    <span style="opacity:.4">¾</span>
+    <span style="opacity:.4">½</span>
+    <span style="opacity:.4">¼</span>
+    <span>0</span>
+  </div>
+  <div id="inspect">hover vessel to inspect stress</div>
+</div>
+
+<!-- RIGHT -->
+<aside class="sidebar right">
+  <div>
+    <div class="stitle">Pressure at Max Depth</div>
+    <div class="rbox"><div class="rl">Internal P_int</div><div class="rv cyan" id="r-pint">—</div></div>
+    <div class="rbox"><div class="rl">Hydrostatic P_hyd (bottom)</div><div class="rv blue" id="r-phyd">—</div></div>
+    <div class="rbox"><div class="rl">Total P_max = P_int + P_hyd</div><div class="rv orange" id="r-ptot">—</div></div>
+    <div class="rbox"><div class="rl">End Cap Force (bottom)</div><div class="rv cyan" id="r-fcap">—</div></div>
+  </div>
+  <div>
+    <div class="stitle">Stress (at max pressure pt)</div>
+    <div class="rbox"><div class="rl">Max Hoop σ_H = P·R/t</div><div class="rv" id="r-hoop">—</div></div>
+    <div class="rbox"><div class="rl">Max Long. σ_L = P·R/2t</div><div class="rv blue" id="r-long">—</div></div>
+    <div class="rbox"><div class="rl">Max Von Mises σ_VM</div><div class="rv" id="r-vm">—</div></div>
+    <div class="ubar">
+      <div class="uh"><span>Hoop / σ_all</span><span id="r-hu" style="color:var(--orange)">—</span></div>
+      <div class="utrack"><div class="ufill" id="uf-h" style="width:0;background:var(--cyan)"></div></div>
+    </div>
+    <div class="ubar">
+      <div class="uh"><span>Von Mises / σ_all</span><span id="r-vmu" style="color:var(--orange)">—</span></div>
+      <div class="utrack"><div class="ufill" id="uf-v" style="width:0;background:var(--green)"></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="stitle">ASME Design Check</div>
+    <div class="rbox" id="box-mawp"><div class="rl">MAWP = σ_all · t / R</div><div class="rv" id="r-mawp">—</div></div>
+    <div class="rbox" id="box-treq"><div class="rl">Required t_min = P·R/σ_all</div><div class="rv" id="r-treq">—</div></div>
+    <div class="rbox" id="box-stat"><div class="rl">Design Status</div><div class="rv" id="r-stat">—</div></div>
+  </div>
+  <div>
+    <div class="stitle">Volume / Deformation <span style="color:var(--orange);font-size:7px">(E + ν dependent)</span></div>
+    <div class="rbox"><div class="rl">R/t Ratio</div><div class="rv orange" id="r-rt">—</div></div>
+    <div class="rbox"><div class="rl">Max Radial Expansion δ_r</div><div class="rv orange" id="r-dr">—</div></div>
+    <div class="rbox"><div class="rl">Hoop Strain ε_H = (σ_H − ν·σ_L)/E</div><div class="rv cyan" id="r-eH">—</div></div>
+    <div class="rbox"><div class="rl">Long. Strain ε_L = (σ_L − ν·σ_H)/E</div><div class="rv blue" id="r-eL">—</div></div>
+    <div class="rbox"><div class="rl">Fluid Volume</div><div class="rv cyan" id="r-fvol">—</div></div>
+    <div class="rbox"><div class="rl">Fluid Mass</div><div class="rv cyan" id="r-fmass">—</div></div>
+  </div>
+</aside>
+</div>
+
+<script>
+const G = 9.81;
+
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  R:0.6, H:4, t:0.014, E:200e9, nu:0.3,
+  P:0.5e6, rho:1000, hf:0.7, sa:138e6,
+  mode:'vm',
+  fluid:true, wire:false, cut:false, deform:true, ds:500
+};
+
+// ─── Physics ──────────────────────────────────────────────────────────────────
+function stressAt(y_world){
+  const zBot = y_world + S.H/2;
+  const depth = Math.max(0, S.hf*S.H - zBot);
+  const Ph = S.rho*G*depth;
+  const Pt = S.P + Ph;
+  const sH = Pt*S.R/S.t;
+  const sL = Pt*S.R/(2*S.t);
+  const sVM = Math.sqrt(sH*sH - sH*sL + sL*sL);
+  // Correct thin-wall radial expansion including Poisson's ratio effect
+  // δr = (PR²/Et)(1 - ν/2)
+  const dr = (Pt*S.R*S.R/(S.E*S.t)) * (1 - S.nu/2);
+  // Circumferential and longitudinal strains
+  const eH = (sH - S.nu*sL) / S.E;
+  const eL = (sL - S.nu*sH) / S.E;
+  return {Ph,Pt,sH,sL,sVM,dr,eH,eL};
+}
+
+function maxStress(){
+  const a = stressAt(-S.H/2); // bottom = highest pressure
+  const Fbot = a.Pt * Math.PI * S.R*S.R;
+  const MAWP = S.sa*S.t/S.R;
+  const treq = a.Pt*S.R/S.sa;
+  const fvol = Math.PI*S.R*S.R*S.hf*S.H;
+  const fmass = S.rho*fvol;
+  return {...a, Fbot, MAWP, treq, fvol, fmass};
+}
+
+// ─── Color map (blue→cyan→green→yellow→red) ───────────────────────────────────
+function sigColor(sigma, sigMax){
+  const t = sigMax>0 ? Math.max(0,Math.min(1,sigma/sigMax)) : 0;
+  let r,g,b;
+  if(t<0.2){const f=t/0.2; r=0; g=f*0.3; b=0.1+f*0.9;}
+  else if(t<0.4){const f=(t-0.2)/0.2; r=0; g=0.3+f*0.7; b=1-f*0.6;}
+  else if(t<0.6){const f=(t-0.4)/0.2; r=f*0.6; g=1; b=0.4-f*0.4;}
+  else if(t<0.8){const f=(t-0.6)/0.2; r=0.6+f*0.4; g=1-f*0.4; b=0;}
+  else{const f=(t-0.8)/0.2; r=1; g=0.6-f*0.6; b=0;}
+  return [r,g,b];
+}
+
+// ─── THREE.js setup ───────────────────────────────────────────────────────────
+const vp = document.getElementById('vp');
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.localClippingEnabled = true;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+vp.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x06080f);
+scene.fog = new THREE.FogExp2(0x06080f, 0.025);
+
+const camera = new THREE.PerspectiveCamera(42,1,0.01,500);
+const sph = {th:0.55, ph:1.15, r:8};
+function camUpdate(){
+  camera.position.set(
+    sph.r*Math.sin(sph.ph)*Math.sin(sph.th),
+    sph.r*Math.cos(sph.ph),
+    sph.r*Math.sin(sph.ph)*Math.cos(sph.th)
+  );
+  camera.lookAt(0,0,0);
+}
+camUpdate();
+
+// Lights
+scene.add(new THREE.AmbientLight(0x1a2233, 1.2));
+const sun = new THREE.DirectionalLight(0xfff0e0, 1.6);
+sun.position.set(5,9,4); sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+scene.add(sun);
+const rim = new THREE.DirectionalLight(0x3366cc, 0.6);
+rim.position.set(-4,2,-5); scene.add(rim);
+const fill = new THREE.DirectionalLight(0xff8833, 0.15);
+fill.position.set(1,-4,2); scene.add(fill);
+scene.add(new THREE.HemisphereLight(0x223344, 0x0a0f0a, 0.5));
+
+// Grid floor
+const grid = new THREE.GridHelper(30,30,0x111922,0x111922);
+scene.add(grid);
+
+// Clipping plane for cutaway (x=0 plane, clips x>0)
+const clip = new THREE.Plane(new THREE.Vector3(-1,0,0),0);
+
+// Materials
+const vessMat = new THREE.MeshPhongMaterial({
+  vertexColors:true, shininess:90, side:THREE.DoubleSide,
+  specular:new THREE.Color(0.2,0.2,0.2)
+});
+const fluidMat = new THREE.MeshPhongMaterial({
+  color:0x1a55dd, transparent:true, opacity:0.22,
+  side:THREE.DoubleSide, depthWrite:false, shininess:20
+});
+const nozzMat = new THREE.MeshPhongMaterial({color:0x667788,shininess:60});
+const skirtMat= new THREE.MeshPhongMaterial({color:0x334455,shininess:40,side:THREE.DoubleSide});
+
+// Mesh group
+const VG = new THREE.Group();
+scene.add(VG);
+
+// Segments
+const RS=64, HS=80, HDS=32;
+
+// ─── Geometry builders ─────────────────────────────────────────────────────────
+function buildShell(R,H,sigMax){
+  const vc=(RS+1)*(HS+1);
+  const pos=new Float32Array(vc*3);
+  const nor=new Float32Array(vc*3);
+  const col=new Float32Array(vc*3);
+  let vi=0;
+  for(let i=0;i<=HS;i++){
+    const y=-H/2+(i/HS)*H;
+    const {sH,sL,sVM,dr}=stressAt(y);
+    const sig = S.mode==='hoop'?sH: S.mode==='long'?sL:sVM;
+    const [r,g,b]=sigColor(sig,sigMax);
+    const Rd = S.deform ? R+dr*S.ds : R;
+    for(let j=0;j<=RS;j++){
+      const th=(j/RS)*Math.PI*2, ct=Math.cos(th), st=Math.sin(th);
+      pos[vi*3]=Rd*ct; pos[vi*3+1]=y; pos[vi*3+2]=Rd*st;
+      nor[vi*3]=ct;    nor[vi*3+1]=0; nor[vi*3+2]=st;
+      col[vi*3]=r;     col[vi*3+1]=g; col[vi*3+2]=b;
+      vi++;
+    }
+  }
+  const fc=RS*HS, idx=new Uint32Array(fc*6); let fi=0;
+  for(let i=0;i<HS;i++){
+    for(let j=0;j<RS;j++){
+      const a=i*(RS+1)+j, b=a+RS+1;
+      idx[fi++]=a; idx[fi++]=b;   idx[fi++]=a+1;
+      idx[fi++]=b; idx[fi++]=b+1; idx[fi++]=a+1;
+    }
+  }
+  const geom=new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geom.setAttribute('normal',  new THREE.BufferAttribute(nor,3));
+  geom.setAttribute('color',   new THREE.BufferAttribute(col,3));
+  geom.setIndex(new THREE.BufferAttribute(idx,1));
+  return geom;
+}
+
+function buildHead(R,H,isTop,sigMax){
+  const headH=R/2;
+  const vc=(RS+1)*(HDS+1);
+  const pos=new Float32Array(vc*3);
+  const nor=new Float32Array(vc*3);
+  const col=new Float32Array(vc*3);
+  const yBase=isTop? H/2 : -H/2;
+  const {sH,sL,sVM,dr}=stressAt(yBase);
+  const sig=S.mode==='hoop'?sH:S.mode==='long'?sL:sVM;
+  const [r,g,b]=sigColor(sig,sigMax);
+  const Rd=S.deform? R+dr*S.ds: R;
+  let vi=0;
+  for(let i=0;i<=HDS;i++){
+    const phi=(i/HDS)*Math.PI/2, cp=Math.cos(phi), sp=Math.sin(phi);
+    const rRing=Rd*cp, yOff=headH*sp;
+    const y=isTop? yBase+yOff : yBase-yOff;
+    for(let j=0;j<=RS;j++){
+      const th=(j/RS)*Math.PI*2, ct=Math.cos(th), st=Math.sin(th);
+      pos[vi*3]=rRing*ct; pos[vi*3+1]=y; pos[vi*3+2]=rRing*st;
+      const nx=cp*ct, nyRaw=2*sp, ny=isTop?nyRaw:-nyRaw, nz=cp*st;
+      const nl=Math.sqrt(nx*nx+ny*ny+nz*nz);
+      nor[vi*3]=nx/nl; nor[vi*3+1]=ny/nl; nor[vi*3+2]=nz/nl;
+      col[vi*3]=r;     col[vi*3+1]=g;     col[vi*3+2]=b;
+      vi++;
+    }
+  }
+  const fc=RS*HDS, idx=new Uint32Array(fc*6); let fi=0;
+  for(let i=0;i<HDS;i++){
+    for(let j=0;j<RS;j++){
+      const a=i*(RS+1)+j, b=a+RS+1;
+      if(isTop){idx[fi++]=a; idx[fi++]=a+1; idx[fi++]=b; idx[fi++]=b; idx[fi++]=a+1; idx[fi++]=b+1;}
+      else     {idx[fi++]=a; idx[fi++]=b;   idx[fi++]=a+1; idx[fi++]=b; idx[fi++]=b+1; idx[fi++]=a+1;}
+    }
+  }
+  const geom=new THREE.BufferGeometry();
+  geom.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geom.setAttribute('normal',  new THREE.BufferAttribute(nor,3));
+  geom.setAttribute('color',   new THREE.BufferAttribute(col,3));
+  geom.setIndex(new THREE.BufferAttribute(idx,1));
+  return geom;
+}
+
+// ─── Build vessel ─────────────────────────────────────────────────────────────
+function buildVessel(){
+  while(VG.children.length){
+    const c=VG.children[0];
+    if(c.geometry) c.geometry.dispose();
+    if(c.material) c.material.dispose();
+    VG.remove(c);
+  }
+  const ms=maxStress();
+  let sigMax;
+  if(S.mode==='hoop') sigMax=ms.sH;
+  else if(S.mode==='long') sigMax=ms.sL;
+  else sigMax=ms.sVM;
+  sigMax=Math.max(sigMax,1);
+
+  const {R,H}=S;
+  const clips=S.cut?[clip]:[];
+
+  function addMesh(geom,mat){
+    const m=mat.clone();
+    m.clippingPlanes=clips;
+    const mesh=new THREE.Mesh(geom,m);
+    mesh.castShadow=true;
+    mesh.userData.isVessel=true;
+    VG.add(mesh);
+    return mesh;
+  }
+
+  // Shell
+  addMesh(buildShell(R,H,sigMax), vessMat);
+
+  // Top head
+  addMesh(buildHead(R,H,true,sigMax), vessMat);
+
+  // Bottom head
+  addMesh(buildHead(R,H,false,sigMax), vessMat);
+
+  // Wireframe overlay
+  if(S.wire){
+    const wg=buildShell(R,H,sigMax);
+    const wm=new THREE.MeshBasicMaterial({color:0x203040,wireframe:true,transparent:true,opacity:0.25});
+    wm.clippingPlanes=clips;
+    VG.add(new THREE.Mesh(wg,wm));
+  }
+
+  // Nozzle (top)
+  const nR=R*0.1, nH=0.28;
+  const ng=new THREE.CylinderGeometry(nR,nR,nH,24);
+  const nm=nozzMat.clone(); nm.clippingPlanes=clips;
+  const nMesh=new THREE.Mesh(ng,nm);
+  nMesh.castShadow=true; nMesh.receiveShadow=true;
+  nMesh.position.y=H/2+R/2+nH/2;
+  VG.add(nMesh);
+
+  // Support skirt — scale with R so it looks proportional at all sizes
+  const skH=Math.max(0.25, S.R * 0.38);
+  const sg=new THREE.CylinderGeometry(R*0.82,R*0.82,skH,48,1,true);
+  const sm=skirtMat.clone(); sm.clippingPlanes=clips;
+  const sMesh=new THREE.Mesh(sg,sm);
+  sMesh.position.y=-H/2-R/2-skH/2;
+  VG.add(sMesh);
+
+  // Base ring
+  const brG=new THREE.TorusGeometry(R*0.82,0.03,8,48);
+  const brM=new THREE.MeshPhongMaterial({color:0x445566}); brM.clippingPlanes=clips;
+  const brMesh=new THREE.Mesh(brG,brM);
+  brMesh.rotation.x=Math.PI/2;
+  brMesh.position.y=-H/2-R/2-skH;
+  VG.add(brMesh);
+
+  // Fluid volume
+  if(S.fluid && S.hf>0.001){
+    const fH=S.hf*H;
+    const fR=R*0.997; // proportional clearance, not hardcoded magic number
+    const fg=new THREE.CylinderGeometry(fR,fR,fH,48,1);
+    const fm=fluidMat.clone(); fm.clippingPlanes=clips;
+    const fMesh=new THREE.Mesh(fg,fm);
+    fMesh.position.y=-H/2+fH/2;
+    fMesh.userData.isFluid=true;
+    VG.add(fMesh);
+
+    // Fluid surface shimmer disc
+    const fsG=new THREE.CircleGeometry(fR,48);
+    const fsM=new THREE.MeshBasicMaterial({color:0x4488ff,transparent:true,opacity:0.25,side:THREE.DoubleSide});
+    fsM.clippingPlanes=clips;
+    const fsMesh=new THREE.Mesh(fsG,fsM);
+    fsMesh.rotation.x=-Math.PI/2;
+    fsMesh.position.y=-H/2+fH;
+    VG.add(fsMesh);
+  }
+
+  // Update grid position
+  grid.position.y=-H/2-R/2-skH-0.02;
+
+  // Color scale label
+  document.getElementById('cs-hi').textContent=(sigMax/1e6).toFixed(1)+' MPa';
+}
+
+// ─── Results panel ────────────────────────────────────────────────────────────
+function fp(pa){
+  if(pa>=1e6) return (pa/1e6).toFixed(3)+' MPa';
+  if(pa>=1000) return (pa/1000).toFixed(2)+' kPa';
+  return pa.toFixed(0)+' Pa';
+}
+function fs(pa){return (pa/1e6).toFixed(3)+' MPa';}
+function ff(n){return n<1e6?(n/1000).toFixed(1)+' kN':(n/1e6).toFixed(2)+' MN';}
+
+function updatePanel(){
+  const m=maxStress();
+  set('r-pint', fp(S.P));
+  set('r-phyd', fp(m.Ph));
+  set('r-ptot', fp(m.Pt));
+  set('r-fcap', ff(m.Fbot));
+  const hCls=m.sH>S.sa?'red':m.sH>S.sa*.8?'yellow':'green';
+  const vCls=m.sVM>S.sa?'red':m.sVM>S.sa*.8?'yellow':'green';
+  setv('r-hoop',fs(m.sH),hCls);
+  setv('r-long',fs(m.sL),'blue');
+  setv('r-vm',  fs(m.sVM),vCls);
+
+  const hu=m.sH/S.sa, vu=m.sVM/S.sa;
+  set('r-hu',(hu*100).toFixed(0)+'%');
+  set('r-vmu',(vu*100).toFixed(0)+'%');
+  bar('uf-h',hu,'cyan');
+  bar('uf-v',vu,'green');
+
+  setv('r-mawp',fp(m.MAWP),m.MAWP>=m.Pt?'cyan':'red');
+  set('r-treq',(m.treq*1000).toFixed(1)+' mm (actual '+(S.t*1000).toFixed(0)+'mm)');
+
+  const over=m.sH>S.sa||m.sVM>S.sa;
+  const near=hu>0.8||vu>0.8;
+  if(over)      setv('r-stat','⚠ OVERSTRESSED','red');
+  else if(near) setv('r-stat','~ NEAR LIMIT','yellow');
+  else          setv('r-stat','✓ SAFE','green');
+
+  set('r-rt',(S.R/S.t).toFixed(1));
+  set('r-fvol',m.fvol.toFixed(3)+' m³');
+  set('r-fmass',(m.fmass/1000).toFixed(2)+' t');
+  set('r-dr',(m.dr*1000).toFixed(4)+' mm');
+  set('r-eH',(m.eH*1e6).toFixed(2)+' µε');
+  set('r-eL',(m.eL*1e6).toFixed(2)+' µε');
+}
+function set(id,v){const e=document.getElementById(id); if(e) e.textContent=v;}
+function setv(id,v,cls){const e=document.getElementById(id); if(e){e.textContent=v; e.className='rv '+cls;}}
+function bar(id,pct,col){
+  const e=document.getElementById(id); if(!e) return;
+  const p=Math.min(pct,1)*100;
+  e.style.width=p+'%';
+  e.style.background=pct>1?'var(--red)':pct>0.8?'var(--yellow)':`var(--${col})`;
+}
+
+// ─── Orbit controls ───────────────────────────────────────────────────────────
+let dragging=false, lx=0, ly=0, autoRot=true;
+renderer.domElement.addEventListener('mousedown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;autoRot=false;});
+window.addEventListener('mouseup',()=>{dragging=false;});
+window.addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  sph.th-=(e.clientX-lx)*0.007;
+  sph.ph=Math.max(0.05,Math.min(Math.PI-0.05,sph.ph+(e.clientY-ly)*0.007));
+  lx=e.clientX; ly=e.clientY;
+  camUpdate();
+});
+renderer.domElement.addEventListener('wheel',e=>{
+  e.preventDefault();
+  sph.r=Math.max(1.5,Math.min(40,sph.r+e.deltaY*0.015));
+  camUpdate();
+},{passive:false});
+// Touch
+let lt=0;
+renderer.domElement.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){dragging=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;autoRot=false;}
+  if(e.touches.length===2) lt=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+},{passive:true});
+renderer.domElement.addEventListener('touchend',()=>{dragging=false;});
+renderer.domElement.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  if(e.touches.length===1&&dragging){
+    sph.th-=(e.touches[0].clientX-lx)*0.007;
+    sph.ph=Math.max(0.05,Math.min(Math.PI-0.05,sph.ph+(e.touches[0].clientY-ly)*0.007));
+    lx=e.touches[0].clientX; ly=e.touches[0].clientY;
+    camUpdate();
+  }
+  if(e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    sph.r=Math.max(1.5,Math.min(40,sph.r*(lt/d)));
+    lt=d; camUpdate();
+  }
+},{passive:false});
+
+// ─── Raycaster hover ─────────────────────────────────────────────────────────
+const RC=new THREE.Raycaster();
+const MV=new THREE.Vector2();
+renderer.domElement.addEventListener('mousemove',e=>{
+  if(dragging) return;
+  const r=renderer.domElement.getBoundingClientRect();
+  MV.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);
+  RC.setFromCamera(MV,camera);
+  const meshes=VG.children.filter(c=>c.userData.isVessel);
+  const hits=RC.intersectObjects(meshes);
+  if(hits.length){
+    const p=hits[0].point;
+    const {Pt,sH,sL,sVM}=stressAt(p.y);
+    const zB=p.y+S.H/2;
+    document.getElementById('inspect').textContent=
+      `z_bottom=${zB.toFixed(2)}m  |  P_total=${fp(Pt)}  |  σ_H=${(sH/1e6).toFixed(3)} MPa  |  σ_VM=${(sVM/1e6).toFixed(3)} MPa`;
+  } else {
+    document.getElementById('inspect').textContent='hover vessel to inspect stress at point';
+  }
+});
+
+// ─── Sliders ──────────────────────────────────────────────────────────────────
+function bind(id,key,scale,fmt,disp){
+  document.getElementById(id).addEventListener('input',function(){
+    S[key]=parseFloat(this.value)*scale;
+    if(disp) document.getElementById(disp).textContent=fmt(this.value);
+    buildVessel();
+    updatePanel();
+  });
+}
+bind('sl-R',  'R',  1,     v=>parseFloat(v).toFixed(2)+' m',       'd-R');
+bind('sl-H',  'H',  1,     v=>parseFloat(v).toFixed(1)+' m',       'd-H');
+bind('sl-t',  't',  0.001, v=>v+' mm',                              'd-t');
+bind('sl-E',  'E',  1e9,   v=>v+' GPa',                            'd-E');
+bind('sl-P',  'P',  1e6,   v=>parseFloat(v).toFixed(2)+' MPa',     'd-P');
+bind('sl-rho','rho',1,     v=>v+' kg/m³',                          'd-rho');
+bind('sl-sa', 'sa', 1e6,   v=>v+' MPa',                            'd-sa');
+bind('sl-ds', 'ds', 1,     v=>v+'×',                               'd-ds');
+// Poisson's ratio needs parseFloat with 2dp display
+document.getElementById('sl-nu').addEventListener('input',function(){
+  S.nu=parseFloat(this.value);
+  document.getElementById('d-nu').textContent=S.nu.toFixed(2);
+  buildVessel(); updatePanel();
+});
+document.getElementById('sl-hf').addEventListener('input',function(){
+  S.hf=parseFloat(this.value);
+  document.getElementById('d-hf').textContent=Math.round(S.hf*100)+'%';
+  buildVessel(); updatePanel();
+});
+
+// ─── Stress mode ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.smbtn').forEach(b=>{
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.smbtn').forEach(x=>x.classList.remove('on'));
+    this.classList.add('on'); S.mode=this.dataset.m;
+    buildVessel(); updatePanel();
+  });
+});
+
+// ─── Toggles ─────────────────────────────────────────────────────────────────
+function tog(id,key,cls=''){
+  document.getElementById(id).addEventListener('click',function(){
+    S[key]=!S[key];
+    this.classList.toggle('on');
+    if(cls) this.classList.toggle(cls,S[key]);
+    buildVessel(); updatePanel();
+  });
+}
+tog('t-fluid','fluid');
+tog('t-wire','wire');
+tog('t-cut','cut');
+tog('t-deform','deform');
+
+// ─── Fill animation ───────────────────────────────────────────────────────────
+let filling=false,draining=false,fAnim=null;
+const fbtn=document.getElementById('fillbtn');
+fbtn.addEventListener('click',function(){
+  if(filling||draining){
+    filling=draining=false; cancelAnimationFrame(fAnim);
+    this.textContent='▲  FILL VESSEL'; this.classList.remove('drain'); return;
+  }
+  if(S.hf>=0.97){draining=true; this.textContent='▼  DRAINING…'; this.classList.add('drain');}
+  else{filling=true; this.textContent='■  STOP';}
+  doFill();
+});
+function doFill(){
+  if(filling) S.hf=Math.min(0.97,S.hf+0.004);
+  else if(draining) S.hf=Math.max(0.005,S.hf-0.004);
+  document.getElementById('sl-hf').value=S.hf;
+  document.getElementById('d-hf').textContent=Math.round(S.hf*100)+'%';
+  buildVessel(); updatePanel();
+  if((filling&&S.hf>=0.97)||(draining&&S.hf<=0.005)){
+    filling=draining=false; fbtn.textContent='▲  FILL VESSEL'; fbtn.classList.remove('drain'); return;
+  }
+  if(filling||draining) fAnim=requestAnimationFrame(doFill);
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+function onResize(){
+  const W=vp.clientWidth, H=vp.clientHeight;
+  renderer.setSize(W,H);
+  camera.aspect=W/H;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',onResize);
+onResize();
+
+// ─── Render loop ──────────────────────────────────────────────────────────────
+function animate(){
+  requestAnimationFrame(animate);
+  if(autoRot){ sph.th+=0.0025; camUpdate(); }
+  renderer.render(scene,camera);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+buildVessel();
+updatePanel();
+animate();
+</script>
+</body>
+</html>
