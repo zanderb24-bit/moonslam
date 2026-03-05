@@ -1,0 +1,62 @@
+:root {
+  --bg: #111111;
+  --panel: #1d1d1d;
+  --text: #f4f4f4;
+  --accent: #ff8c00;
+  --accent-soft: #ffb347;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #1f1f1f, var(--bg));
+  color: var(--text);
+  font-family: Inter, Arial, sans-serif;
+}
+
+.dashboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+header h1 {
+  color: var(--accent);
+  margin-bottom: 0;
+}
+
+header p {
+  margin-top: 8px;
+  color: #cccccc;
+}
+
+.price-card,
+.chart-card {
+  background: var(--panel);
+  border: 1px solid #2f2f2f;
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+#price {
+  font-size: 2rem;
+  color: var(--accent-soft);
+  margin: 8px 0;
+  font-weight: 700;
+}
+
+#updated {
+  color: #bbbbbb;
+}
+
+.tradingview-widget-container,
+#tradingview_chart {
+  width: 100%;
+  min-height: 500px;
+}
